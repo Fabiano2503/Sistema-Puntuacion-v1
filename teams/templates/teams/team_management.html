@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<section id="equipos" class="view active">
+  <div class="grid">
+    <div class="card" style="grid-column:span 8">
+      <div class="body">
+        <h3>Gestión de Equipos</h3>
+        <div class="btns" style="margin-bottom: 16px;">
+          <a href="{% url 'teams:add_team' %}" class="btn primary">➕ Agregar Equipo</a>
+        </div>
+        <table id="teamsTable">
+          <thead>
+            <tr><th>Nombre</th><th>Descripción</th><th>Miembros</th><th>Puntos Totales</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="teamsBody">
+            {% for team in teams %}
+            <tr>
+              <td>{{ team.name }}</td>
+              <td>{{ team.description|default:"-" }}</td>
+              <td>{{ team.user_set.count }}</td>
+              <td>{{ team.calculated_points }}</td>
+              <td>
+                <a href="{% url 'teams:edit_team' team.id %}" class="btn ghost">Editar</a>
+                <a href="{% url 'teams:delete_team' team.id %}" class="btn danger" onclick="return confirm('¿Estás seguro de eliminar este equipo?')">Eliminar</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card" style="grid-column:span 4">
+      <div class="body">
+        <h3>Información de Equipos</h3>
+        <p>Desde aquí puedes gestionar los equipos del sistema. Cada usuario puede pertenecer a un equipo.</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

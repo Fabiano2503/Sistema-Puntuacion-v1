@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<section id="ingresar-puntos" class="view active">
+  <div class="grid">
+    <div class="card" style="grid-column:span 8">
+      <div class="body">
+        <h3>Ingresar Puntos (Solo Admin)</h3>
+        <form class="form" method="post" action="{% url 'activities:add_activity' %}">
+          {% csrf_token %}
+          <div class="row">
+            <div class="col-6">
+              <label for="activityType">Tipo de actividad</label>
+              <select id="activityType" name="activity_type" required onchange="updatePoints()">
+                <option value="">Seleccionar tipo</option>
+                {% for activity_type in activity_types %}
+                <option value="{{ activity_type.id }}" data-points="{{ activity_type.points }}">
+                  {{ activity_type.name }} ({{ activity_type.points }} pts)
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label for="userSelect">Usuario</label>
+              <select id="userSelect" name="user" required>
+                <option value="">Seleccionar usuario</option>
+                {% for user in users %}
+                <option value="{{ user.id }}">{{ user.name }} - {{ user.team.name|default:"Sin equipo" }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label for="pointsDate">Fecha</label>
+              <input id="pointsDate" name="date" type="date" required value="{{ today|date:'Y-m-d' }}" />
+            </div>
+            <div class="col-6">
+              <label for="pointsTime">Hora</label>
+              <input id="pointsTime" name="time" type="time" required value="{{ now|date:'H:i' }}" />
+            </div>
+            <div class="col-12">
+              <label for="evidence">Evidencia (URL / referencia)</label>
+              <input id="evidence" name="evidence" placeholder="Enlace al repositorio o trello" />
+            </div>
+            <div class="col-12">
+              <label for="notes">Notas</label>
+              <textarea id="notes" name="notes" placeholder="Detalle adicional"></textarea>
+            </div>
+          </div>
+          <div class="btns">
+            <button class="btn primary" type="submit">Agregar Puntos</button>
+            <button class="btn ghost" type="reset">Limpiar</button>
+            <span class="badge" id="estimatedPoints">Puntos: 0</span>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="card" style="grid-column:span 4">
+      <div class="body">
+        <h3>Reglas de puntuación</h3>
+        <ul>
+          {% for activity_type in activity_types %}
+          <li>{{ activity_type.name }} → <strong>{{ activity_type.points }} pts</strong></li>
+          {% endfor %}
+        </ul>
+        <p class="trend">* Los puntos se reinician cada quincena</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+function updatePoints() {
+  const activityType = document.getElementById('activityType');
+  const selectedOption = activityType.options[activityType.selectedIndex];
+  const points = selectedOption ? selectedOption.getAttribute('data-points') || 0 : 0;
+  document.getElementById('estimatedPoints').textContent = `Puntos: ${points}`;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema de Puntuación - Reflexo</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
+  <script src="{% static 'js/app.js' %}"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+  {% if user.is_authenticated %}
+    <!-- Main App -->
+    <div class="app">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="logo" aria-hidden="true"></div>
+          <div>
+            <h1>Sistema de Puntuación</h1>
+            <div style="color:var(--text-2); font-size:12px">Reflexo</div>
+          </div>
+        </div>
+        <nav class="nav">
+          <a href="{% url 'dashboard:dashboard' %}" class="nav-link {% if request.resolver_match.app_name == 'dashboard' %}active{% endif %}">🏠 Dashboard</a>
+          {% if user.is_admin %}
+          <a href="{% url 'activities:add_activity' %}" class="nav-link {% if request.resolver_match.app_name == 'activities' %}active{% endif %}">📝 Ingresar Puntos</a>
+          {% endif %}
+          <a href="{% url 'reports:reports_history' %}" class="nav-link {% if request.resolver_match.app_name == 'reports' %}active{% endif %}">📊 Reportes</a>
+          {% if user.is_admin %}
+          <a href="{% url 'users:user_management' %}" class="nav-link {% if request.resolver_match.app_name == 'users' %}active{% endif %}">👥 Usuarios</a>
+          <a href="{% url 'teams:team_management' %}" class="nav-link {% if request.resolver_match.app_name == 'teams' %}active{% endif %}">🏢 Equipos</a>
+          {% endif %}
+        </nav>
+        <p class="hint">Sistema de puntuación quincenal</p>
+      </aside>
+
+      <!-- Content -->
+      <section style="display:flex; flex-direction:column; min-width:0">
+        <header class="header">
+          <div class="tabs">
+            {% if request.resolver_match.app_name == 'dashboard' %}
+            <a href="?period=diario" class="tab {% if request.GET.period == 'diario' or not request.GET.period %}active{% endif %}">Diario</a>
+            <a href="?period=semanal" class="tab {% if request.GET.period == 'semanal' %}active{% endif %}">Semanal</a>
+            <a href="?period=quincenal" class="tab {% if request.GET.period == 'quincenal' %}active{% endif %}">Quincenal</a>
+            {% endif %}
+          </div>
+          <div class="user">
+            <span id="userInfo" style="color:var(--text-2)">{{ user.name }} • {% if user.is_admin %}Admin{% else %}Usuario{% endif %}</span>
+            <div class="avatar" aria-hidden="true">
+              <img class="avatar" src="{{ request.user.userprofile.image_url.url }}" alt="avatar" />
+            </div>
+            <a href="{% url 'users:logout' %}" class="logout-btn">Cerrar Sesión</a>
+          </div>
+        </header>
+        <main>
+          {% if messages %}
+            <div class="messages-container">
+              {% for message in messages %}
+                <div class="alert {{ message.tags }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+          
+          {% block content %}{% endblock %}
+        </main>
+      </section>
+    </div>
+  {% endif %}
+</body>
+</html>

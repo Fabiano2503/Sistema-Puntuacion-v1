@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<section id="usuarios" class="view active">
+  <div class="grid">
+    <div class="card" style="grid-column:span 8">
+      <div class="body">
+        <h3>Gestión de Usuarios</h3>
+        <div class="btns" style="margin-bottom: 16px;">
+        </div>
+        <table id="usersTable">
+          <thead>
+            <tr><th>Nombre</th><th>Email</th><th>Equipo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="usersBody">
+            {% for user in users %}
+            <tr>
+              <td>{{ user.name }}</td>
+              <td>{{ user.email }}</td>
+              <td>{{ user.team.name|default:"Sin equipo" }}</td>
+              <td>{{ user.get_rol_display }}</td>
+              <td><span class="pill {% if user.is_active %}ok{% else %}err{% endif %}">{% if user.is_active %}Activo{% else %}Inactivo{% endif %}</span></td>
+              <td>
+                <button class="btn ghost" onclick="location.href='{% url 'users:edit_user' user.id %}'">Editar</button>
+                <button class="btn danger" onclick="if(confirm('¿Estás seguro de eliminar este usuario?')) location.href='{% url 'users:delete_user' user.id %}'">Eliminar</button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card" style="grid-column:span 4">
+      <div class="body">
+        <h3>Agregar/Editar Usuario</h3>
+        <form id="userForm" method="post" action="{% url 'users:user_management' %}">
+          {% csrf_token %}
+          <input type="hidden" name="user_id" value="{{ editing_user.id|default:'' }}">
+          <div class="form">
+            <label for="userName">Nombre completo</label>
+            <input id="userName" name="name" value="{{ editing_user.name|default:'' }}" required>
+            
+            <label for="userEmail">Email</label>
+            <input id="userEmail" name="email" type="email" value="{{ editing_user.email|default:'' }}" required>
+            
+            <label for="userTeam">Equipo</label>
+            <select id="userTeam" name="team">
+              <option value="">Seleccionar equipo</option>
+              {% for team in teams %}
+              <option value="{{ team.id }}" {% if editing_user.team and editing_user.team.id == team.id %}selected{% endif %}>{{ team.name }}</option>
+              {% endfor %}
+            </select>
+            
+            <label for="userRole">Rol</label>
+            <select id="userRole" name="role" required>
+              <option value="user" {% if editing_user.rol == 'user' %}selected{% endif %}>Usuario</option>
+              <option value="admin" {% if editing_user.rol == 'admin' %}selected{% endif %}>Admin</option>
+            </select>
+
+            {% if not editing_user %}
+            <label for="userPassword">Contraseña</label>
+            <input id="userPassword" name="password" type="password" required>
+
+            <label for="userPasswordConfirm">Confirmar contraseña</label>
+            <input id="userPasswordConfirm" name="password_confirm" type="password" required>
+            {% endif %}
+            
+            <div class="btns">
+              <button class="btn primary" type="submit">Guardar</button>
+              <a href="{% url 'users:user_management' %}" class="btn ghost">Limpiar</a>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

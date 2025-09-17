@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<section id="equipos" class="view active">
+  <div class="grid">
+    <div class="card" style="grid-column:span 8">
+      <div class="body">
+        <h3>Editar Equipo</h3>
+        <form method="post" action="{% url 'teams:edit_team' team.id %}">
+          {% csrf_token %}
+          <div class="form">
+            <label for="teamName">Nombre del equipo</label>
+            <input id="teamName" name="name" value="{{ team.name }}" required>
+            
+            <label for="teamDescription">Descripción</label>
+            <textarea id="teamDescription" name="description">{{ team.description|default:"" }}</textarea>
+            
+            <div class="btns">
+              <button class="btn primary" type="submit">Guardar</button>
+              <a href="{% url 'teams:team_management' %}" class="btn ghost">Cancelar</a>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="card" style="grid-column:span 4">
+      <div class="body">
+        <h3>Miembros del equipo</h3>
+        <ul>
+          {% for user in team.user_set.all %}
+          <li>{{ user.name }} ({{ user.email }})</li>
+          {% empty %}
+          <li>No hay miembros en este equipo</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

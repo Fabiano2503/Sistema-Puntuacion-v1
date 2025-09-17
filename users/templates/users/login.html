@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Iniciar Sesión</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+  <div class="login-screen">
+    <div class="login-card">
+      <h2>🔐 Iniciar Sesión</h2>
+      <form class="login-form" method="post" action="{% url 'users:login' %}">
+        {% csrf_token %}
+        <input type="email" name="email" placeholder="Correo electrónico" required>
+        <input type="password" name="password" placeholder="Contraseña" required>
+        <button type="submit">Ingresar</button>
+        
+        {% if messages %}
+          {% for message in messages %}
+            {% if 'error' in message.tags %}
+              <div class="error">{{ message }}</div>
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        
+      </form>
+    </div>
+  </div>
+</body>
+</html>
