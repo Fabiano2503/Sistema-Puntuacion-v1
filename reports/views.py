@@ -100,14 +100,19 @@ def history(request):
 
 @login_required
 def export_history_excel(request):
-    # Simple CSV (compatible con Excel). Se puede reemplazar por xlsxwriter/openpyxl.
+    # Generar XLSX con openpyxl (mejor compatibilidad)
     period = request.GET.get('period')
     user_id = request.GET.get('user')
     team_id = request.GET.get('team')
     start = request.GET.get('start')
     end = request.GET.get('end')
-    response = HttpResponse(content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = 'attachment; filename="historial_actividades.csv"'
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Historial'
 
     qs = Activity.objects.select_related('activity_type', 'user', 'user__team')
     if period in ('daily', 'weekly', 'biweekly'):
@@ -125,7 +130,80 @@ def export_history_excel(request):
     if team_id and str(team_id).isdigit():
         qs = qs.filter(user__team_id=team_id)
 
-    response.write('Fecha,Usuario,Equipo,Actividad,Puntos,Evidencia\n')
+    headers = ['Fecha', 'Usuario', 'Equipo', 'Actividad', 'Puntos', 'Evidencia']
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(start_color='2D2F3A', end_color='2D2F3A', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center')
+
+    for a in qs:
+        ws.append([
+            a.date.isoformat(),
+            a.user.name,
+            a.user.team.name if a.user.team else '-',
+            a.activity_type.name,
+            a.activity_type.points,
+            a.evidence or '-',
+        ])
+
+    for col in ws.columns:
+        max_len = 12
+        for cell in col:
+            try:
+                max_len = max(max_len, len(str(cell.value)))
+            except Exception:
+                pass
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
+
+    from io import BytesIO
+    bio = BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+    resp = FileResponse(bio, as_attachment=True, filename='historial_actividades.xlsx', content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    return resp
+
+
+@login_required
+def export_history_pdf(request):
+    # Exportar PDF con tabla usando fpdf2 (sin dependencias de compilación)
+    period = request.GET.get('period')
+    user_id = request.GET.get('user')
+    team_id = request.GET.get('team')
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+
+    qs = Activity.objects.select_related('activity_type', 'user', 'user__team')
+    if period in ('daily', 'weekly', 'biweekly'):
+        start_date, end_date = _get_period_range(period)
+        qs = qs.filter(date__range=(start_date, end_date))
+    elif start and end:
+        try:
+            start_date = datetime.strptime(start, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end, '%Y-%m-%d').date()
+            qs = qs.filter(date__range=(start_date, end_date))
+        except Exception:
+            pass
+    if user_id and str(user_id).isdigit():
+        qs = qs.filter(user_id=user_id)
+    if team_id and str(team_id).isdigit():
+        qs = qs.filter(user__team_id=team_id)
+
+    from fpdf import FPDF
+
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf.add_page()
+    pdf.set_font('Helvetica', 'B', 16)
+    pdf.cell(0, 10, 'Historial de Actividades', ln=1)
+
+    pdf.set_font('Helvetica', 'B', 10)
+    headers = ['Fecha', 'Usuario', 'Equipo', 'Actividad', 'Puntos']
+    widths = [25, 45, 45, 60, 20]
+    for h, w in zip(headers, widths):
+        pdf.cell(w, 8, h, border=1, align='C')
+    pdf.ln(8)
+
+    pdf.set_font('Helvetica', '', 10)
     for a in qs:
         row = [
             a.date.isoformat(),
@@ -133,43 +211,15 @@ def export_history_excel(request):
             a.user.team.name if a.user.team else '-',
             a.activity_type.name,
             str(a.activity_type.points),
-            (a.evidence or '').replace(',', ' '),
         ]
-        response.write(','.join(row) + '\n')
-    return response
+        for c, w in zip(row, widths):
+            pdf.cell(w, 8, c, border=1, align='C')
+        pdf.ln(8)
 
-
-@login_required
-def export_history_pdf(request):
-    # MVP: exportar como PDF simple de texto
-    period = request.GET.get('period')
-    user_id = request.GET.get('user')
-    team_id = request.GET.get('team')
-    start = request.GET.get('start')
-    end = request.GET.get('end')
-    qs = Activity.objects.select_related('activity_type', 'user', 'user__team')
-    if period in ('daily', 'weekly', 'biweekly'):
-        start_date, end_date = _get_period_range(period)
-        qs = qs.filter(date__range=(start_date, end_date))
-    elif start and end:
-        try:
-            start_date = datetime.strptime(start, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end, '%Y-%m-%d').date()
-            qs = qs.filter(date__range=(start_date, end_date))
-        except Exception:
-            pass
-    if user_id and str(user_id).isdigit():
-        qs = qs.filter(user_id=user_id)
-    if team_id and str(team_id).isdigit():
-        qs = qs.filter(user__team_id=team_id)
-
-    buffer = io.BytesIO()
-    content = 'Historial de Actividades\n\n'
-    for a in qs:
-        content += f"{a.date} - {a.user.name} - {a.user.team.name if a.user.team else '-'} - {a.activity_type.name} (+{a.activity_type.points})\n"
-    buffer.write(content.encode('utf-8'))
+    output = bytes(pdf.output(dest='S'))
+    buffer = io.BytesIO(output)
     buffer.seek(0)
-    return FileResponse(buffer, as_attachment=True, filename='historial_actividades.pdf')
+    return FileResponse(buffer, as_attachment=True, filename='historial_actividades.pdf', content_type='application/pdf')
 
 
 @login_required

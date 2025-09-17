@@ -28,6 +28,19 @@ def dashboard(request):
     user_points = {}
     user_activities_count = {}
     
+    def normalize_type_key(raw_name: str) -> str:
+        n = (raw_name or '').strip().lower()
+        # Spanish-friendly normalization
+        if 'commit' in n:
+            return 'commit'
+        if 'sprint' in n or 'review' in n:
+            return 'sprint'
+        if 'tempran' in n or 'puntual' in n or 'puntualidad' in n or 'temprano' in n:
+            return 'early'
+        if 'completar' in n or 'sistema' in n:
+            return 'system'
+        return n or 'otros'
+
     for activity in activities:
         user_id = activity.user.id
         if user_id not in user_points:
@@ -37,15 +50,15 @@ def dashboard(request):
                 'activities_count': 0,
                 'by_type': {}
             }
-        
+    
         user_points[user_id]['total'] += activity.activity_type.points
         user_points[user_id]['activities_count'] += 1
-        
-        # Contar por tipo de actividad
-        activity_type_name = activity.activity_type.name.lower()
-        if activity_type_name not in user_points[user_id]['by_type']:
-            user_points[user_id]['by_type'][activity_type_name] = 0
-        user_points[user_id]['by_type'][activity_type_name] += activity.activity_type.points
+    
+        # Contar por tipo de actividad (normalizado)
+        type_key = normalize_type_key(activity.activity_type.name)
+        if type_key not in user_points[user_id]['by_type']:
+            user_points[user_id]['by_type'][type_key] = 0
+        user_points[user_id]['by_type'][type_key] += activity.activity_type.points
     
     # Convertir a lista y ordenar por puntos totales
     ranking = sorted(user_points.values(), key=lambda x: x['total'], reverse=True)
@@ -156,10 +169,31 @@ def export_ranking_pdf(request):
 
     ranking = sorted(user_data.values(), key=lambda x: x['points'], reverse=True)
 
-    buffer = io.BytesIO()
-    content = 'Ranking\n\n'
+    # Generate PDF using fpdf2 (pure Python, no build tools)
+    from fpdf import FPDF
+
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf.add_page()
+    pdf.set_font('Helvetica', 'B', 16)
+    pdf.cell(0, 10, 'Ranking', ln=1)
+
+    # Header
+    pdf.set_font('Helvetica', 'B', 10)
+    headers = ['#', 'Nombre', 'Equipo', 'Puntos', 'Actividades']
+    widths = [10, 60, 60, 25, 25]
+    for h, w in zip(headers, widths):
+        pdf.cell(w, 8, h, border=1, align='C')
+    pdf.ln(8)
+
+    # Rows
+    pdf.set_font('Helvetica', '', 10)
     for idx, row in enumerate(ranking, start=1):
-        content += f"{idx}. {row['name']} - {row['team']} - {row['points']} pts ({row['activities']} act)\n"
-    buffer.write(content.encode('utf-8'))
+        cells = [str(idx), row['name'], row['team'], str(row['points']), str(row['activities'])]
+        for c, w in zip(cells, widths):
+            pdf.cell(w, 8, c, border=1, align='C')
+        pdf.ln(8)
+
+    output = bytes(pdf.output(dest='S'))
+    buffer = io.BytesIO(output)
     buffer.seek(0)
-    return FileResponse(buffer, as_attachment=True, filename='ranking.pdf')
+    return FileResponse(buffer, as_attachment=True, filename='ranking.pdf', content_type='application/pdf')
