@@ -1,8 +1,10 @@
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login, authenticate, logout
 from django.contrib import messages
-from .models import User
+from .models import User, UserProfile
+from .forms import UserProfileForm
 from teams.models import Team
 
 def user_login(request):
@@ -108,3 +110,16 @@ def delete_user(request, user_id):
         messages.success(request, 'Usuario eliminado correctamente')
     
     return redirect('users:user_management')
+
+@login_required
+def update_profile_image(request):
+    if request.method == 'POST':
+        profile = get_object_or_404(UserProfile, user=request.user)
+        form = UserProfileForm(request.POST, request.FILES, instance=profile)
+        if form.is_valid():
+            profile = form.save()
+            return JsonResponse({
+                'success': True,
+                'image_url': profile.image_url.url
+            })
+        return JsonResponse({'success': False, 'errors': form.errors}, status=400)

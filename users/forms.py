@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm, UserChangeForm
 from django.contrib.auth import authenticate
-from .models import User
+from .models import User, UserProfile
 
 class CustomAuthenticationForm(AuthenticationForm):
     username = forms.EmailField(
@@ -106,3 +106,8 @@ class CustomUserChangeForm(forms.ModelForm):
         if User.objects.filter(email=email).exclude(pk=self.instance.pk).exists():
             raise forms.ValidationError("Este email ya está registrado por otro usuario")
         return email
+    
+class UserProfileForm(forms.ModelForm):
+    class Meta:
+        model = UserProfile
+        fields = ['image_url']
