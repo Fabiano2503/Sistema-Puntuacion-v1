@@ -81,9 +81,9 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'sistema_puntuacion_v1',
+        'NAME': 'sistemapuntuacion_db',
         'USER': 'root',
-        'PASSWORD': 'root',
+        'PASSWORD': '1234',
         'HOST': 'localhost',
         'PORT': '3306',
     }

@@ -7,7 +7,10 @@
     <div class="card" style="grid-column:span 8">
       <div class="body">
         <h3>Gestión de Usuarios</h3>
-        <div class="btns" style="margin-bottom: 16px;">
+        <div class="btns" style="margin-bottom: 16px; display:flex; justify-content: space-between; gap:8px;">
+          <div style="flex:1">
+            <input id="userSearchInput" placeholder="Buscar por nombre, email o equipo..." oninput="filterUsers()" />
+          </div>
         </div>
         <table id="usersTable">
           <thead>
@@ -29,6 +32,16 @@
             {% endfor %}
           </tbody>
         </table>
+        <script>
+          function filterUsers() {
+            const q = document.getElementById('userSearchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('#usersBody tr');
+            rows.forEach(r => {
+              const text = r.innerText.toLowerCase();
+              r.style.display = text.includes(q) ? '' : 'none';
+            });
+          }
+        </script>
       </div>
     </div>
     <div class="card" style="grid-column:span 4">

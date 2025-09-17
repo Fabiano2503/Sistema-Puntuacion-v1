@@ -7,9 +7,11 @@ from django.db.models import Sum, F, Count
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
+from datetime import datetime
 
 from activities.models.activity import Activity
 from users.models.user import User
+from teams.models import Team
 from .models.period import Period
 from .models.ranking import Ranking
 
@@ -52,27 +54,76 @@ def history(request):
         start_date, end_date = _get_period_range(period)
         qs = qs.filter(date__range=(start_date, end_date))
     elif start and end:
-        qs = qs.filter(date__range=(start, end))
+        try:
+            start_date = datetime.strptime(start, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end, '%Y-%m-%d').date()
+            qs = qs.filter(date__range=(start_date, end_date))
+        except Exception:
+            pass
 
-    if user_id:
+    if user_id and str(user_id).isdigit():
         qs = qs.filter(user_id=user_id)
-    if team_id:
+    if team_id and str(team_id).isdigit():
         qs = qs.filter(user__team_id=team_id)
 
     qs = qs.order_by('-date', '-created_at')
 
-    return render(request, 'reports/history.html', {'activities': qs})
+    # Estadísticas
+    total_activities = qs.count()
+    totals = qs.aggregate(total_points=Sum(F('activity_type__points')))
+    total_points = totals['total_points'] or 0
+    active_users = qs.values('user_id').distinct().count()
+    distinct_days = qs.values('date').distinct().count() or 1
+    daily_average = round(total_activities / distinct_days)
+
+    context = {
+        'activities': qs,
+        'users': User.objects.filter(is_active=True).order_by('name'),
+        'teams': Team.objects.all().order_by('name'),
+        'stats': {
+            'total_activities': total_activities,
+            'total_points': total_points,
+            'active_users': active_users,
+            'daily_average': daily_average,
+        },
+        'selected': {
+            'period': period or '',
+            'user': user_id or '',
+            'team': team_id or '',
+            'start': start or '',
+            'end': end or '',
+        },
+    }
+
+    return render(request, 'reports/history.html', context)
 
 
 @login_required
 def export_history_excel(request):
     # Simple CSV (compatible con Excel). Se puede reemplazar por xlsxwriter/openpyxl.
     period = request.GET.get('period')
+    user_id = request.GET.get('user')
+    team_id = request.GET.get('team')
+    start = request.GET.get('start')
+    end = request.GET.get('end')
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = 'attachment; filename="historial_actividades.csv"'
 
-    start_date, end_date = _get_period_range(period or 'biweekly')
-    qs = Activity.objects.select_related('activity_type', 'user', 'user__team').filter(date__range=(start_date, end_date))
+    qs = Activity.objects.select_related('activity_type', 'user', 'user__team')
+    if period in ('daily', 'weekly', 'biweekly'):
+        start_date, end_date = _get_period_range(period)
+        qs = qs.filter(date__range=(start_date, end_date))
+    elif start and end:
+        try:
+            start_date = datetime.strptime(start, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end, '%Y-%m-%d').date()
+            qs = qs.filter(date__range=(start_date, end_date))
+        except Exception:
+            pass
+    if user_id and str(user_id).isdigit():
+        qs = qs.filter(user_id=user_id)
+    if team_id and str(team_id).isdigit():
+        qs = qs.filter(user__team_id=team_id)
 
     response.write('Fecha,Usuario,Equipo,Actividad,Puntos,Evidencia\n')
     for a in qs:
@@ -92,8 +143,25 @@ def export_history_excel(request):
 def export_history_pdf(request):
     # MVP: exportar como PDF simple de texto
     period = request.GET.get('period')
-    start_date, end_date = _get_period_range(period or 'biweekly')
-    qs = Activity.objects.select_related('activity_type', 'user', 'user__team').filter(date__range=(start_date, end_date))
+    user_id = request.GET.get('user')
+    team_id = request.GET.get('team')
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+    qs = Activity.objects.select_related('activity_type', 'user', 'user__team')
+    if period in ('daily', 'weekly', 'biweekly'):
+        start_date, end_date = _get_period_range(period)
+        qs = qs.filter(date__range=(start_date, end_date))
+    elif start and end:
+        try:
+            start_date = datetime.strptime(start, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end, '%Y-%m-%d').date()
+            qs = qs.filter(date__range=(start_date, end_date))
+        except Exception:
+            pass
+    if user_id and str(user_id).isdigit():
+        qs = qs.filter(user_id=user_id)
+    if team_id and str(team_id).isdigit():
+        qs = qs.filter(user__team_id=team_id)
 
     buffer = io.BytesIO()
     content = 'Historial de Actividades\n\n'

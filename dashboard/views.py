@@ -1,4 +1,6 @@
 from django.shortcuts import render
+from django.http import HttpResponse, FileResponse
+import io
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from datetime import timedelta
@@ -85,3 +87,79 @@ def dashboard(request):
     }
     
     return render(request, 'dashboard/dashboard.html', context)
+
+
+@login_required
+def export_ranking_excel(request):
+    period = request.GET.get('period', 'diario')
+
+    today = timezone.now().date()
+    if period == 'diario':
+        start_date = today
+    elif period == 'semanal':
+        start_date = today - timedelta(days=today.weekday())
+    else:
+        start_date = today - timedelta(days=14)
+
+    activities = Activity.objects.filter(date__gte=start_date)
+
+    # Build ranking same as dashboard
+    user_data = {}
+    for a in activities:
+        uid = a.user.id
+        if uid not in user_data:
+            user_data[uid] = {
+                'name': a.user.name,
+                'team': a.user.team.name if getattr(a.user, 'team', None) else 'Sin equipo',
+                'points': 0,
+                'activities': 0,
+            }
+        user_data[uid]['points'] += a.activity_type.points
+        user_data[uid]['activities'] += 1
+
+    ranking = sorted(user_data.values(), key=lambda x: x['points'], reverse=True)
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = 'attachment; filename="ranking.csv"'
+    response.write('Posición,Nombre,Equipo,Puntos,Actividades\n')
+    for idx, row in enumerate(ranking, start=1):
+        response.write(f"{idx},{row['name']},{row['team']},{row['points']},{row['activities']}\n")
+    return response
+
+
+@login_required
+def export_ranking_pdf(request):
+    period = request.GET.get('period', 'diario')
+
+    today = timezone.now().date()
+    if period == 'diario':
+        start_date = today
+    elif period == 'semanal':
+        start_date = today - timedelta(days=today.weekday())
+    else:
+        start_date = today - timedelta(days=14)
+
+    activities = Activity.objects.filter(date__gte=start_date)
+
+    user_data = {}
+    for a in activities:
+        uid = a.user.id
+        if uid not in user_data:
+            user_data[uid] = {
+                'name': a.user.name,
+                'team': a.user.team.name if getattr(a.user, 'team', None) else 'Sin equipo',
+                'points': 0,
+                'activities': 0,
+            }
+        user_data[uid]['points'] += a.activity_type.points
+        user_data[uid]['activities'] += 1
+
+    ranking = sorted(user_data.values(), key=lambda x: x['points'], reverse=True)
+
+    buffer = io.BytesIO()
+    content = 'Ranking\n\n'
+    for idx, row in enumerate(ranking, start=1):
+        content += f"{idx}. {row['name']} - {row['team']} - {row['points']} pts ({row['activities']} act)\n"
+    buffer.write(content.encode('utf-8'))
+    buffer.seek(0)
+    return FileResponse(buffer, as_attachment=True, filename='ranking.pdf')

@@ -53,8 +53,8 @@
           </tbody>
         </table>
         <div class="export-btns">
-          <button class="btn success" onclick="exportToExcel('ranking')">📊 Exportar Excel</button>
-          <button class="btn primary" onclick="exportToPDF('ranking')">📄 Exportar PDF</button>
+          <a class="btn success" href="{% url 'dashboard:export_ranking_excel' %}?period={{ period }}">📊 Exportar Excel</a>
+          <a class="btn primary" href="{% url 'dashboard:export_ranking_pdf' %}?period={{ period }}">📄 Exportar PDF</a>
         </div>
       </div>
     </div>

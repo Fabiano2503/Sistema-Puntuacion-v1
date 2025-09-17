@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <h2>Cierre de Periodo Quincenal</h2>
+  <div class="card">
+    <p>Periodo: {{ period.startDate }} — {{ period.endDate }}</p>
+    <p>Estado: {% if period.is_closed %}<strong>Cerrado</strong>{% else %}<strong>Abierto</strong>{% endif %}</p>
+    <p>El ranking fue recalculado y almacenado.</p>
+    <a class="btn" href="{% url 'reports:reports_history' %}">Volver a Reportes</a>
+  </div>
+</div>
+{% endblock %}
+
+

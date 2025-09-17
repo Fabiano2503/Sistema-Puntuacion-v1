@@ -7,7 +7,10 @@
     <div class="card" style="grid-column:span 8">
       <div class="body">
         <h3>Gestión de Equipos</h3>
-        <div class="btns" style="margin-bottom: 16px;">
+        <div class="btns" style="margin-bottom: 16px; display:flex; justify-content: space-between; gap:8px;">
+          <div style="flex:1">
+            <input id="teamSearchInput" placeholder="Buscar equipo..." oninput="filterTeams()" />
+          </div>
           <a href="{% url 'teams:add_team' %}" class="btn primary">➕ Agregar Equipo</a>
         </div>
         <table id="teamsTable">
@@ -29,6 +32,16 @@
             {% endfor %}
           </tbody>
         </table>
+        <script>
+          function filterTeams() {
+            const q = document.getElementById('teamSearchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('#teamsBody tr');
+            rows.forEach(r => {
+              const text = r.innerText.toLowerCase();
+              r.style.display = text.includes(q) ? '' : 'none';
+            });
+          }
+        </script>
       </div>
     </div>
     <div class="card" style="grid-column:span 4">
