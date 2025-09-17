@@ -6,7 +6,7 @@
   <title>Sistema de Puntuación - Reflexo</title>
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/styles.css' %}" />
-  <script src="{% static 'js/app.js' %}"></script>
+  <script src="{% static 'js/scripts.js' %}"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -47,14 +47,41 @@
             <a href="?period=quincenal" class="tab {% if request.GET.period == 'quincenal' %}active{% endif %}">Quincenal</a>
             {% endif %}
           </div>
-          <div class="user">
-            <span id="userInfo" style="color:var(--text-2)">{{ user.name }} • {% if user.is_admin %}Admin{% else %}Usuario{% endif %}</span>
-            <div class="avatar" aria-hidden="true">
-              <img class="avatar" src="{{ request.user.userprofile.image_url.url }}" alt="avatar" />
+
+          <!-- Perfil de usuario con dropdown -->
+          <div class="user-menu">
+            <div class="avatar-toggle" id="avatarToggle">
+              <img class="avatar" src="{% if request.user.userprofile.image_url %}{{ request.user.userprofile.image_url.url }}{% else %}/media/profile_images/default.jpeg{% endif %}" alt="avatar" />
             </div>
-            <a href="{% url 'users:logout' %}" class="logout-btn">Cerrar Sesión</a>
+
+            <!-- Dropdown oculto -->
+            <div class="profile-dropdown hidden" id="profileDropdown">
+              <div class="profile-header">
+                <img class="avatar large" src="{% if request.user.userprofile.image_url %}{{ request.user.userprofile.image_url.url }}{% else %}/media/profile_images/default.jpeg{% endif %}" alt="avatar" />
+                <div>
+                  <strong>{{ user.name }}</strong>
+                  <div class="email">{{ user.email }}</div>
+                </div>
+              </div>
+
+              <form id="profileImageForm" method="POST" enctype="multipart/form-data" action="{% url 'users:update_profile_image' %}">
+                {% csrf_token %}
+                <label class="btn ghost small" style="cursor: pointer;">
+                  Cambiar Imagen
+                  <input type="file" name="image_url" id="profileImageInput" accept="image/*" hidden />
+                </label>
+
+                <!-- Contenedor para botón confirmar -->
+                <div id="confirmButtonContainer" style="margin-top: 10px; display: none;">
+                  <button type="button" id="confirmUploadBtn" class="btn primary small">Confirmar cambio de imagen</button>
+                </div>
+              </form>
+
+              <a href="{% url 'users:logout' %}" class="btn ghost small danger">Cerrar Sesión</a>
+            </div>
           </div>
         </header>
+
         <main>
           {% if messages %}
             <div class="messages-container">
@@ -63,7 +90,7 @@
               {% endfor %}
             </div>
           {% endif %}
-          
+
           {% block content %}{% endblock %}
         </main>
       </section>

@@ -9,4 +9,5 @@ urlpatterns = [
     path('management/', views.user_management, name='user_management'),
     path('edit/<int:user_id>/', views.edit_user, name='edit_user'),
     path('delete/<int:user_id>/', views.delete_user, name='delete_user'),
+    path('update-profile-image/', views.update_profile_image, name='update_profile_image'),
 ]
