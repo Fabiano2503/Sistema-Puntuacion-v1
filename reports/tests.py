@@ -54,7 +54,7 @@ class SqlInjectionSafetyTests(TestCase):
             'team': '1 OR 1=1'
         })
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('text/csv', resp['Content-Type'])
+        self.assertIn('text/xlsx', resp['Content-Type'])
 
     def test_export_history_pdf_safe(self):
         url = reverse('reports:export_history_pdf')
