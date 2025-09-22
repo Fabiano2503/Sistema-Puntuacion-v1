@@ -1,27 +1,27 @@
 import io
-from datetime import timedelta
-
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.db.models import Sum, F, Count
-from django.http import FileResponse, HttpResponse
 from django.shortcuts import render
+from django.http import FileResponse, HttpResponse
+from django.contrib.auth.decorators import login_required, user_passes_test
+from datetime import timedelta
+from django.contrib import messages
+from django.db.models import Sum, F, Count
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill
+from fpdf import FPDF
+from io import BytesIO
 from django.utils import timezone
 from datetime import datetime
-
 from activities.models.activity import Activity
 from users.models.user import User
 from teams.models import Team
 from .models.period import Period
 from .models.ranking import Ranking
 
-
 def is_admin(user: User) -> bool:
     return user.is_authenticated and user.is_admin
 
-
 def _get_period_range(period: str):
-    today = timezone.now().date()
+    today = timezone.localtime(timezone.now()).date()
     if period == 'daily':
         return today, today
     if period == 'weekly':
@@ -39,12 +39,9 @@ def _get_period_range(period: str):
         end = next_month - timedelta(days=1)
     return start, end
 
-
 @login_required
 def history(request):
     period = request.GET.get('period')  # daily|weekly|biweekly or custom
-    user_id = request.GET.get('user')
-    team_id = request.GET.get('team')
     start = request.GET.get('start')
     end = request.GET.get('end')
 
@@ -61,10 +58,20 @@ def history(request):
         except Exception:
             pass
 
-    if user_id and str(user_id).isdigit():
-        qs = qs.filter(user_id=user_id)
-    if team_id and str(team_id).isdigit():
-        qs = qs.filter(user__team_id=team_id)
+    if request.user.is_admin:
+        user_id = request.GET.get('user')
+        team_id = request.GET.get('team')
+        if user_id and str(user_id).isdigit():
+            qs = qs.filter(user_id=user_id)
+        if team_id and str(team_id).isdigit():
+            qs = qs.filter(user__team_id=team_id)
+        teams = Team.objects.all().order_by('name')
+
+    else:
+        qs = qs.filter(user=request.user)
+        user_id = str(request.user.id)
+        team_id = str(request.user.team_id)
+        teams = request.user.team
 
     qs = qs.order_by('-date', '-created_at')
 
@@ -74,12 +81,12 @@ def history(request):
     total_points = totals['total_points'] or 0
     active_users = qs.values('user_id').distinct().count()
     distinct_days = qs.values('date').distinct().count() or 1
-    daily_average = round(total_activities / distinct_days)
+    daily_average = round(total_activities / distinct_days) if distinct_days else 0
 
     context = {
         'activities': qs,
         'users': User.objects.filter(is_active=True).order_by('name'),
-        'teams': Team.objects.all().order_by('name'),
+        'teams': teams,
         'stats': {
             'total_activities': total_activities,
             'total_points': total_points,
@@ -97,22 +104,11 @@ def history(request):
 
     return render(request, 'reports/history.html', context)
 
-
 @login_required
 def export_history_excel(request):
-    # Generar XLSX con openpyxl (mejor compatibilidad)
     period = request.GET.get('period')
-    user_id = request.GET.get('user')
-    team_id = request.GET.get('team')
     start = request.GET.get('start')
     end = request.GET.get('end')
-
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, Alignment, PatternFill
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = 'Historial'
 
     qs = Activity.objects.select_related('activity_type', 'user', 'user__team')
     if period in ('daily', 'weekly', 'biweekly'):
@@ -125,10 +121,20 @@ def export_history_excel(request):
             qs = qs.filter(date__range=(start_date, end_date))
         except Exception:
             pass
-    if user_id and str(user_id).isdigit():
-        qs = qs.filter(user_id=user_id)
-    if team_id and str(team_id).isdigit():
-        qs = qs.filter(user__team_id=team_id)
+
+    if request.user.is_admin:
+        user_id = request.GET.get('user')
+        team_id = request.GET.get('team')
+        if user_id and str(user_id).isdigit():
+            qs = qs.filter(user_id=user_id)
+        if team_id and str(team_id).isdigit():
+            qs = qs.filter(user__team_id=team_id)
+    else:
+        qs = qs.filter(user=request.user)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Historial'
 
     headers = ['Fecha', 'Usuario', 'Equipo', 'Actividad', 'Puntos', 'Evidencia']
     ws.append(headers)
@@ -156,20 +162,15 @@ def export_history_excel(request):
                 pass
         ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
 
-    from io import BytesIO
     bio = BytesIO()
     wb.save(bio)
     bio.seek(0)
     resp = FileResponse(bio, as_attachment=True, filename='historial_actividades.xlsx', content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     return resp
 
-
 @login_required
 def export_history_pdf(request):
-    # Exportar PDF con tabla usando fpdf2 (sin dependencias de compilación)
     period = request.GET.get('period')
-    user_id = request.GET.get('user')
-    team_id = request.GET.get('team')
     start = request.GET.get('start')
     end = request.GET.get('end')
 
@@ -184,12 +185,16 @@ def export_history_pdf(request):
             qs = qs.filter(date__range=(start_date, end_date))
         except Exception:
             pass
-    if user_id and str(user_id).isdigit():
-        qs = qs.filter(user_id=user_id)
-    if team_id and str(team_id).isdigit():
-        qs = qs.filter(user__team_id=team_id)
 
-    from fpdf import FPDF
+    if request.user.is_admin:
+        user_id = request.GET.get('user')
+        team_id = request.GET.get('team')
+        if user_id and str(user_id).isdigit():
+            qs = qs.filter(user_id=user_id)
+        if team_id and str(team_id).isdigit():
+            qs = qs.filter(user__team_id=team_id)
+    else:
+        qs = qs.filter(user=request.user)
 
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
@@ -220,7 +225,6 @@ def export_history_pdf(request):
     buffer = io.BytesIO(output)
     buffer.seek(0)
     return FileResponse(buffer, as_attachment=True, filename='historial_actividades.pdf', content_type='application/pdf')
-
 
 @login_required
 def ranking_api(request):
@@ -268,7 +272,6 @@ def ranking_api(request):
         })
     )
 
-
 @login_required
 @user_passes_test(is_admin)
 def close_biweekly(request):
@@ -307,5 +310,3 @@ def close_biweekly(request):
     period.save()
     messages.success(request, 'Periodo quincenal cerrado y ranking publicado.')
     return render(request, 'reports/close.html', {'period': period})
-
-# Create your views here.
