@@ -24,13 +24,10 @@ class DashboardExportInjectionTests(TestCase):
         url = reverse('dashboard:export_ranking_excel')
         resp = self.client.get(url, {'period': "diario; DROP TABLE x;--"})
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('text/csv', resp['Content-Type'])
+        self.assertIn('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', resp['Content-Type'])
 
     def test_export_ranking_pdf_safe(self):
         url = reverse('dashboard:export_ranking_pdf')
         resp = self.client.get(url, {'period': "' OR '1'='1"})
         self.assertEqual(resp.status_code, 200)
         self.assertIn('application/pdf', resp['Content-Type'])
-from django.test import TestCase
-
-# Create your tests here.
