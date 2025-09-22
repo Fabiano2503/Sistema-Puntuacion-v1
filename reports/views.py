@@ -1,6 +1,5 @@
 import io
 from datetime import timedelta
-
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Sum, F, Count
@@ -8,20 +7,17 @@ from django.http import FileResponse, HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
 from datetime import datetime
-
 from activities.models.activity import Activity
 from users.models.user import User
 from teams.models import Team
 from .models.period import Period
 from .models.ranking import Ranking
 
-
 def is_admin(user: User) -> bool:
     return user.is_authenticated and user.is_admin
 
-
 def _get_period_range(period: str):
-    today = timezone.now().date()
+    today = timezone.localtime(timezone.now()).date()
     if period == 'daily':
         return today, today
     if period == 'weekly':
@@ -38,7 +34,6 @@ def _get_period_range(period: str):
         next_month = (today.replace(day=28) + timedelta(days=4)).replace(day=1)
         end = next_month - timedelta(days=1)
     return start, end
-
 
 @login_required
 def history(request):
@@ -96,7 +91,6 @@ def history(request):
     }
 
     return render(request, 'reports/history.html', context)
-
 
 @login_required
 def export_history_excel(request):
@@ -163,7 +157,6 @@ def export_history_excel(request):
     resp = FileResponse(bio, as_attachment=True, filename='historial_actividades.xlsx', content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     return resp
 
-
 @login_required
 def export_history_pdf(request):
     # Exportar PDF con tabla usando fpdf2 (sin dependencias de compilación)
@@ -221,7 +214,6 @@ def export_history_pdf(request):
     buffer.seek(0)
     return FileResponse(buffer, as_attachment=True, filename='historial_actividades.pdf', content_type='application/pdf')
 
-
 @login_required
 def ranking_api(request):
     period = request.GET.get('period', 'biweekly')
@@ -268,7 +260,6 @@ def ranking_api(request):
         })
     )
 
-
 @login_required
 @user_passes_test(is_admin)
 def close_biweekly(request):
@@ -307,5 +298,3 @@ def close_biweekly(request):
     period.save()
     messages.success(request, 'Periodo quincenal cerrado y ranking publicado.')
     return render(request, 'reports/close.html', {'period': period})
-
-# Create your views here.

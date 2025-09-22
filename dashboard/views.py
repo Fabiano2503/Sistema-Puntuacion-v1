@@ -13,7 +13,7 @@ def dashboard(request):
     period = request.GET.get('period', 'diario')
     
     # Calcular fechas según el período
-    today = timezone.now().date()
+    today = timezone.localtime(timezone.now()).date()
     if period == 'diario':
         start_date = today
     elif period == 'semanal':
@@ -101,12 +101,11 @@ def dashboard(request):
     
     return render(request, 'dashboard/dashboard.html', context)
 
-
 @login_required
 def export_ranking_excel(request):
     period = request.GET.get('period', 'diario')
 
-    today = timezone.now().date()
+    today = timezone.localtime(timezone.now()).date()
     if period == 'diario':
         start_date = today
     elif period == 'semanal':
@@ -144,7 +143,7 @@ def export_ranking_excel(request):
 def export_ranking_pdf(request):
     period = request.GET.get('period', 'diario')
 
-    today = timezone.now().date()
+    today = timezone.localtime(timezone.now()).date()
     if period == 'diario':
         start_date = today
     elif period == 'semanal':
