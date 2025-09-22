@@ -2,9 +2,9 @@
 {% block content %}
 <div class="container">
   <h2>Historial de Actividades</h2>
+  <form method="get" class="filters" style="display: flex; flex-wrap: wrap; gap: 8px; align-items: end;">
 
-  <form method="get" class="filters" style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr 120px; gap: 8px; align-items:end;">
-    <div>
+    <div style="flex: 1 1 180px;">
       <label>Periodo</label>
       <select name="period">
         <option value="">Personalizado</option>
@@ -13,15 +13,19 @@
         <option value="biweekly" {% if selected.period == 'biweekly' %}selected{% endif %}>Quincenal</option>
       </select>
     </div>
-    <div>
+
+    <div style="flex: 1 1 180px;">
       <label>Inicio</label>
       <input type="date" name="start" value="{{ selected.start }}" />
     </div>
-    <div>
+
+    <div style="flex: 1 1 180px;">
       <label>Fin</label>
       <input type="date" name="end" value="{{ selected.end }}" />
     </div>
-    <div>
+
+    {% if user.is_admin %}
+    <div style="flex: 1 1 180px;">
       <label>Usuario</label>
       <select name="user">
         <option value="">Todos</option>
@@ -30,7 +34,8 @@
         {% endfor %}
       </select>
     </div>
-    <div>
+
+    <div style="flex: 1 1 180px;">
       <label>Equipo</label>
       <select name="team">
         <option value="">Todos</option>
@@ -39,14 +44,22 @@
         {% endfor %}
       </select>
     </div>
-    <div>
+    {% endif %}
+
+    <div style="flex: 0 0 auto;">
       <button type="submit" class="btn">Filtrar</button>
+    </div>
+
+    <div style="flex: 0 0 auto;">
+      <button type="button" class="btn" onclick="window.location.href='{% url 'reports:reports_history' %}'">Limpiar filtros</button>
     </div>
   </form>
 
   <div style="margin:8px 0; display:flex; gap:8px;">
-    <a class="btn" href="{% url 'reports:export_history_excel' %}?period={{ selected.period }}&start={{ selected.start }}&end={{ selected.end }}&user={{ selected.user }}&team={{ selected.team }}">Exportar Excel</a>
-    <a class="btn" href="{% url 'reports:export_history_pdf' %}?period={{ selected.period }}&start={{ selected.start }}&end={{ selected.end }}&user={{ selected.user }}&team={{ selected.team }}">Exportar PDF</a>
+    <a class="btn" href="{% url 'reports:export_history_excel' %}?period={{ selected.period }}&start={{ selected.start }}&end={{ selected.end }}{% if user.is_admin %}&user={{ selected.user }}&team={{ selected.team }}{% endif %}">Exportar Excel</a>
+
+    <a class="btn" href="{% url 'reports:export_history_pdf' %}?period={{ selected.period }}&start={{ selected.start }}&end={{ selected.end }}{% if user.is_admin %}&user={{ selected.user }}&team={{ selected.team }}{% endif %}">Exportar PDF</a>
+
     {% if user.is_admin %}
     <a class="btn warn" href="{% url 'reports:close_biweekly' %}">Cerrar Quincena</a>
     {% endif %}
@@ -84,6 +97,7 @@
       </table>
     </div>
     <aside class="card">
+      <div class="body">
       <h3>Estadísticas</h3>
       <ul style="list-style:none; padding:0; margin:0;">
         <li style="display:flex; justify-content:space-between; margin:6px 0;">
@@ -94,20 +108,19 @@
           <span>Puntos totales:</span>
           <strong>{{ stats.total_points }}</strong>
         </li>
+        {% if user.is_admin %}
         <li style="display:flex; justify-content:space-between; margin:6px 0;">
           <span>Usuarios activos:</span>
           <strong>{{ stats.active_users }}</strong>
         </li>
+        {% endif %}
         <li style="display:flex; justify-content:space-between; margin:6px 0;">
           <span>Promedio diario:</span>
           <strong>{{ stats.daily_average }}</strong>
         </li>
       </ul>
+      </div>
     </aside>
   </div>
-
-  
 </div>
 {% endblock %}
-
-

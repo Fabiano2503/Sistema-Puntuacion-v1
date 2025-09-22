@@ -1,9 +1,13 @@
+import io
 from django.shortcuts import render
 from django.http import HttpResponse, FileResponse
-import io
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from datetime import timedelta
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, PatternFill
+from fpdf import FPDF
+from io import BytesIO
 from activities.models import Activity
 from users.models.user import User
 
@@ -61,7 +65,7 @@ def dashboard(request):
         user_points[user_id]['by_type'][type_key] += activity.activity_type.points
     
     # Convertir a lista y ordenar por puntos totales
-    ranking = sorted(user_points.values(), key=lambda x: x['total'], reverse=True)
+    ranking = sorted(user_points.values(), key=lambda x: x['total'], reverse=True)[:5] # Top 5
     
     # Encontrar la posición del usuario actual
     user_position = next((i+1 for i, item in enumerate(ranking) if item['user'].id == request.user.id), '-')
@@ -104,8 +108,8 @@ def dashboard(request):
 @login_required
 def export_ranking_excel(request):
     period = request.GET.get('period', 'diario')
-
     today = timezone.localtime(timezone.now()).date()
+
     if period == 'diario':
         start_date = today
     elif period == 'semanal':
@@ -113,31 +117,71 @@ def export_ranking_excel(request):
     else:
         start_date = today - timedelta(days=14)
 
-    activities = Activity.objects.filter(date__gte=start_date)
+    activities = Activity.objects.select_related('user', 'user__team', 'activity_type').filter(date__gte=start_date)
 
-    # Build ranking same as dashboard
+    # Armar datos de ranking
     user_data = {}
     for a in activities:
-        uid = a.user.id
+        user = a.user
+        uid = user.id
+
         if uid not in user_data:
             user_data[uid] = {
-                'name': a.user.name,
-                'team': a.user.team.name if getattr(a.user, 'team', None) else 'Sin equipo',
+                'name': user.name,
+                'team': user.team.name if getattr(user, 'team', None) else 'Sin equipo',
                 'points': 0,
                 'activities': 0,
             }
+
         user_data[uid]['points'] += a.activity_type.points
         user_data[uid]['activities'] += 1
 
     ranking = sorted(user_data.values(), key=lambda x: x['points'], reverse=True)
 
-    response = HttpResponse(content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = 'attachment; filename="ranking.csv"'
-    response.write('Posición,Nombre,Equipo,Puntos,Actividades\n')
-    for idx, row in enumerate(ranking, start=1):
-        response.write(f"{idx},{row['name']},{row['team']},{row['points']},{row['activities']}\n")
-    return response
+    # Crear archivo Excel
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Ranking'
 
+    # Encabezados
+    headers = ['Posición', 'Nombre', 'Equipo', 'Puntos', 'Actividades']
+    ws.append(headers)
+
+    # Estilo de encabezados
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color='FFFFFF')
+        cell.fill = PatternFill(start_color='2D2F3A', end_color='2D2F3A', fill_type='solid')
+        cell.alignment = Alignment(horizontal='center')
+
+    # Agregar filas
+    for idx, row in enumerate(ranking, start=1):
+        ws.append([
+            idx,
+            row['name'],
+            row['team'],
+            row['points'],
+            row['activities']
+        ])
+
+    # Autoajustar columnas
+    for col in ws.columns:
+        max_len = 12
+        for cell in col:
+            try:
+                max_len = max(max_len, len(str(cell.value)))
+            except Exception:
+                pass
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 40)
+
+    # Respuesta HTTP
+    bio = BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+
+    filename = f"ranking_{period}.xlsx"
+    response = FileResponse(bio, as_attachment=True, filename=filename, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    return response
 
 @login_required
 def export_ranking_pdf(request):
@@ -168,9 +212,6 @@ def export_ranking_pdf(request):
 
     ranking = sorted(user_data.values(), key=lambda x: x['points'], reverse=True)
 
-    # Generate PDF using fpdf2 (pure Python, no build tools)
-    from fpdf import FPDF
-
     pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
     pdf.set_font('Helvetica', 'B', 16)
@@ -195,4 +236,5 @@ def export_ranking_pdf(request):
     output = bytes(pdf.output(dest='S'))
     buffer = io.BytesIO(output)
     buffer.seek(0)
-    return FileResponse(buffer, as_attachment=True, filename='ranking.pdf', content_type='application/pdf')
+    filename = f"ranking_{period}.pdf"
+    return FileResponse(buffer, as_attachment=True, filename=filename, content_type='application/pdf')
